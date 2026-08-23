@@ -1,0 +1,6 @@
+# Copy this to configsentry.yaml and adjust paths for your host.
+plugins:
+  file_integrity:
+    paths:
+      - /etc/hosts
+      - /etc/ssh/sshd_config

@@ -1,3 +1,4 @@
+[![CI](https://github.com/shanecthomas/configsentry/actions/workflows/ci.yml/badge.svg)](https://github.com/shanecthomas/configsentry/actions/workflows/ci.yml)
 # configsentry
 
 Config drift auditor for Linux hosts. Capture a baseline of the

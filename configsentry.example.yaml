@@ -16,3 +16,7 @@ plugins:
       - sshd
       - cron
       - docker
+  # Full inventory of LISTEN-state TCP and bound UDP sockets - do not modify
+  # Requires the `ss` command (iproute2); no process attribution
+  # Comment out if your system uses frequent ephemeral ports
+  ports: {}

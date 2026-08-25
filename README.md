@@ -33,3 +33,5 @@ pip install -e ".[dev]"
 pytest
 ruff check .
 ```
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for how to add a new plugin.

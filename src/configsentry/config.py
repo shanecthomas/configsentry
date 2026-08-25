@@ -40,6 +40,12 @@ class ServicesConfig(BaseModel):
     names: list[str] = Field(default_factory=list)
 
 
+class PortsConfig(BaseModel):
+    """
+    This plugin runs in full-inventory mode over every LISTEN-state socket.
+    """
+
+
 class PluginsConfig(BaseModel):
     # Every future plugin gets one more optional field here, e.g.:
     #   sysctl: SysctlConfig | None = None
@@ -47,6 +53,7 @@ class PluginsConfig(BaseModel):
     file_integrity: FileIntegrityConfig | None = None
     packages: PackagesConfig | None = None
     services: ServicesConfig | None = None
+    ports: PortsConfig | None = None
 
 
 class AppConfig(BaseModel):

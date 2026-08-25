@@ -5,7 +5,7 @@ Config drift auditor for Linux hosts. Capture a baseline of the
 configuration surfaces (files, services, ports, packages,
 cron, sysctl, SSH hardening), then check live state against it.
 
-Environment-agnostic, detect-and-report only -- no auto-remediation.
+Environment-agnostic, detect-and-report only - no auto-remediation.
 
 ## Status
 
@@ -13,6 +13,7 @@ Early development. Currently implemented plugins:
 - `file_integrity`
 - `packages` (apt/dpkg only)
 - `services` (systemd only)
+- `ports` (requires `ss`/iproute2, no process attribution)
 
 ## Usage
 

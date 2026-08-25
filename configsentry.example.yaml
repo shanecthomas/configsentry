@@ -4,3 +4,7 @@ plugins:
     paths:
       - /etc/hosts
       - /etc/ssh/sshd_config
+  # Full package inventory diff - do not modify
+  # Currently supports apt/dpkg only
+  # Comment out if using a different distro
+  packages: {}

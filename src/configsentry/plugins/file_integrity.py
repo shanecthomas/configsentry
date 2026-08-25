@@ -17,6 +17,7 @@ import hashlib
 import stat
 from pathlib import Path
 
+from configsentry.config import FileIntegrityConfig
 from configsentry.models import Finding, PluginSnapshot, ResourceState
 
 PLUGIN_NAME = "file_integrity"
@@ -65,10 +66,18 @@ def _capture_one(path_str: str) -> ResourceState:
     )
 
 
-def capture_baseline(paths: list[str]) -> PluginSnapshot:
-    """Capture current state for every configured path."""
+def capture_baseline(config: FileIntegrityConfig) -> PluginSnapshot:
+    """
+    Capture current state for every configured path.
+
+    Takes the whole FileIntegrityConfig now, not a bare `paths` list
+    -- this is the interface-extraction change (see plugins/base.py):
+    every plugin's capture_baseline() takes its own config object, so
+    cli.py can call any plugin the same way without knowing its
+    specific fields.
+    """
     resources: list[ResourceState] = []
-    for path_str in paths:
+    for path_str in config.paths:
         try:
             resources.append(_capture_one(path_str))
         except OSError as exc:
@@ -81,12 +90,12 @@ def capture_baseline(paths: list[str]) -> PluginSnapshot:
     return PluginSnapshot(plugin=PLUGIN_NAME, resources=resources)
 
 
-def check(paths: list[str], baseline: PluginSnapshot) -> list[Finding]:
+def check(config: FileIntegrityConfig, baseline: PluginSnapshot) -> list[Finding]:
     """Compare current state of each path against its baseline record."""
     baseline_by_path = {r.resource: r for r in baseline.resources}
     findings: list[Finding] = []
 
-    for path_str in paths:
+    for path_str in config.paths:
         baseline_state = baseline_by_path.get(path_str)
         if baseline_state is None:
             findings.append(

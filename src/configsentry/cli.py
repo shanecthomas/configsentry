@@ -8,7 +8,9 @@ plugins/ file instead.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any
 
 import typer
 from pydantic import ValidationError
@@ -17,12 +19,34 @@ from rich.table import Table
 
 from configsentry.config import AppConfig, load_config
 from configsentry.models import Baseline, PluginResult, ScanReport
-from configsentry.plugins import file_integrity
+from configsentry.plugins import file_integrity, packages
+from configsentry.plugins.base import PluginError, PluginModule
 
 app = typer.Typer(
     help="configsentry: capture a config baseline, then detect drift against it."
 )
 console = Console()
+
+# Registers every plugin once, in one place. Each entry pairs a plugin
+# module with a getter that pulls THAT plugin's own config object off
+# AppConfig.plugins -- that one-line-per-plugin getter is the only spot
+# left that needs to know PluginsConfig's individual field names.
+# Everything downstream (baseline(), check()) calls plugins uniformly
+# through the PluginModule contract and never branches per plugin name.
+_PLUGINS: dict[str, tuple[PluginModule, Callable[[AppConfig], Any]]] = {
+    file_integrity.PLUGIN_NAME: (file_integrity, lambda cfg: cfg.plugins.file_integrity),
+    packages.PLUGIN_NAME: (packages, lambda cfg: cfg.plugins.packages),
+}
+
+# Fail fast at import time, not at first use, if a plugin module drifts
+# out of shape with the contract (e.g. someone renames PLUGIN_NAME or
+# changes check()'s signature). isinstance() works here because
+# PluginModule is @runtime_checkable -- see plugins/base.py.
+for _plugin_module, _ in _PLUGINS.values():
+    assert isinstance(_plugin_module, PluginModule), (
+        f"{_plugin_module.__name__!r} does not satisfy PluginModule -- "
+        f"check its capture_baseline()/check() signatures against plugins/base.py"
+    )
 
 # Typer reads these type hints to build the actual CLI: `Path` becomes
 # a path argument, `bool` becomes a --flag/--no-flag pair, and the
@@ -72,9 +96,11 @@ def baseline(
 
     result = Baseline()
 
-    if app_config.plugins.file_integrity is not None:
-        snapshot = file_integrity.capture_baseline(app_config.plugins.file_integrity.paths)
-        result.plugin_snapshots.append(snapshot)
+    for plugin_module, get_config in _PLUGINS.values():
+        plugin_config = get_config(app_config)
+        if plugin_config is None:
+            continue
+        result.plugin_snapshots.append(plugin_module.capture_baseline(plugin_config))
 
     baseline_file.parent.mkdir(parents=True, exist_ok=True)
     baseline_file.write_text(result.model_dump_json(indent=2))
@@ -91,6 +117,9 @@ def check(
     config: Path = ConfigOption,
     baseline_file: Path = BaselineFileOption,
     json_output: bool = typer.Option(False, "--json", help="Emit JSON instead of a table"),
+    show_all: bool = typer.Option(
+        False, "--all", "-a", help="Include unchanged resources in table output (default: drift only)"
+    ),
 ) -> None:
     """Compare current state against the stored baseline and report drift."""
     app_config = _load_config_or_exit(config)
@@ -104,26 +133,41 @@ def check(
 
     report = ScanReport(mode="check")
 
-    if app_config.plugins.file_integrity is not None:
-        fi_config = app_config.plugins.file_integrity
-        fi_baseline = snapshots_by_plugin.get(file_integrity.PLUGIN_NAME)
-        if fi_baseline is None:
+    for plugin_name, (plugin_module, get_config) in _PLUGINS.items():
+        plugin_config = get_config(app_config)
+        if plugin_config is None:
+            continue
+
+        plugin_baseline = snapshots_by_plugin.get(plugin_name)
+        if plugin_baseline is None:
             report.plugin_results.append(
                 PluginResult(
-                    plugin=file_integrity.PLUGIN_NAME,
+                    plugin=plugin_name,
                     error="No baseline data for this plugin -- run `baseline` again.",
                 )
             )
-        else:
-            findings = file_integrity.check(fi_config.paths, fi_baseline)
+            continue
+
+        if plugin_baseline.error:
+            # nothing to diff against, so surface the same message rather
+            # than attempting a check() that has no baseline to compare to
             report.plugin_results.append(
-                PluginResult(plugin=file_integrity.PLUGIN_NAME, findings=findings)
+                PluginResult(plugin=plugin_name, error=plugin_baseline.error)
             )
+            continue
+
+        try:
+            findings = plugin_module.check(plugin_config, plugin_baseline)
+            report.plugin_results.append(PluginResult(plugin=plugin_name, findings=findings))
+        except PluginError as exc:
+            # Catches any future plugin's own error type without cli.py needing to import
+            # or name it specifically -- see plugins/base.py.
+            report.plugin_results.append(PluginResult(plugin=plugin_name, error=str(exc)))
 
     if json_output:
         print(report.model_dump_json(indent=2))
     else:
-        _render_table(report)
+        _render_table(report, show_all=show_all)
 
     if report.has_errors:
         raise typer.Exit(code=2)
@@ -132,7 +176,11 @@ def check(
     # implicit exit code 0: clean
 
 
-def _render_table(report: ScanReport) -> None:
+def _render_table(report: ScanReport, show_all: bool = False) -> None:
+    if not report.plugin_results:
+        console.print("[dim]No plugins configured -- nothing to check.[/dim]")
+        return
+
     table = Table(title="configsentry check")
     table.add_column("Plugin")
     table.add_column("Resource")
@@ -147,14 +195,15 @@ def _render_table(report: ScanReport) -> None:
         "error": "bold red",
     }
 
-    any_findings = False
     for plugin_result in report.plugin_results:
         if plugin_result.error:
             table.add_row(plugin_result.plugin, "-", "[red]ERROR[/red]", plugin_result.error)
-            any_findings = True
             continue
-        for finding in plugin_result.findings:
-            any_findings = True
+        # Default view is drift-only. A full-inventory plugin like
+        # `packages` can produce thousands of "unchanged" rows, which
+        # would bury the handful that actually matter.
+        findings = plugin_result.findings if show_all else plugin_result.drifted_findings
+        for finding in findings:
             color = status_colors.get(finding.status, "white")
             table.add_row(
                 plugin_result.plugin,
@@ -163,11 +212,9 @@ def _render_table(report: ScanReport) -> None:
                 finding.detail or "",
             )
 
-    if not any_findings:
-        console.print("[dim]No plugins configured -- nothing to check.[/dim]")
-        return
+    if table.row_count:
+        console.print(table)
 
-    console.print(table)
     # Same priority as the exit-code logic below: errors outrank drift,
     # which outranks clean. Checking has_drift first here would let a run
     # with a real error still print "No drift detected." in green --

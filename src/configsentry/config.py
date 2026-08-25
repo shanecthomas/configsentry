@@ -20,11 +20,18 @@ class FileIntegrityConfig(BaseModel):
     paths: list[str] = Field(default_factory=list)
 
 
+class PackagesConfig(BaseModel):
+    """
+    No fields yet. This plugin runs in full-inventory mode.
+    """
+
+
 class PluginsConfig(BaseModel):
     # Every future plugin gets one more optional field here, e.g.:
     #   services: ServicesConfig | None = None
     # `None` means "not configured, so this plugin doesn't run."
     file_integrity: FileIntegrityConfig | None = None
+    packages: PackagesConfig | None = None
 
 
 class AppConfig(BaseModel):

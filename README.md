@@ -9,7 +9,9 @@ Environment-agnostic, detect-and-report only -- no auto-remediation.
 
 ## Status
 
-Early development. Currently implemented: `file_integrity` plugin.
+Early development. Currently implemented plugins: 
+- `file_integrity`
+- `packages` (apt/dpkg only)
 
 ## Usage
 

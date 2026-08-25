@@ -19,7 +19,7 @@ from rich.table import Table
 
 from configsentry.config import AppConfig, load_config
 from configsentry.models import Baseline, PluginResult, ScanReport
-from configsentry.plugins import file_integrity, packages
+from configsentry.plugins import file_integrity, packages, services
 from configsentry.plugins.base import PluginError, PluginModule
 
 app = typer.Typer(
@@ -36,6 +36,7 @@ console = Console()
 _PLUGINS: dict[str, tuple[PluginModule, Callable[[AppConfig], Any]]] = {
     file_integrity.PLUGIN_NAME: (file_integrity, lambda cfg: cfg.plugins.file_integrity),
     packages.PLUGIN_NAME: (packages, lambda cfg: cfg.plugins.packages),
+    services.PLUGIN_NAME: (services, lambda cfg: cfg.plugins.services),
 }
 
 # Fail fast at import time, not at first use, if a plugin module drifts

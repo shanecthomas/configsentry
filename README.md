@@ -12,6 +12,7 @@ Environment-agnostic, detect-and-report only -- no auto-remediation.
 Early development. Currently implemented plugins: 
 - `file_integrity`
 - `packages` (apt/dpkg only)
+- `services` (systemd only)
 
 ## Usage
 

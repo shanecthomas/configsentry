@@ -8,3 +8,11 @@ plugins:
   # Currently supports apt/dpkg only
   # Comment out if using a different distro
   packages: {}
+  # Tracks enablement (UnitFileState) and runtime state (ActiveState)
+  # for systemd units only
+  # Comment out if your system does not use systemd
+  services:
+    names:
+      - sshd
+      - cron
+      - docker

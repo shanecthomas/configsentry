@@ -15,6 +15,7 @@ Early development. Currently implemented plugins:
 - `services` (systemd only)
 - `timers` (systemd only)
 - `ports` (requires `ss`/iproute2, no process attribution)
+- `sysctl`
 
 ## Usage
 

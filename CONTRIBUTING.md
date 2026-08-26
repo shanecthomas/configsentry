@@ -70,31 +70,38 @@ they're the only docs a new user actually reads first.
 
 These aren't implementation details — they change what your plugin
 *means*, and they're worth deciding deliberately rather than
-defaulting into. Look at how the four existing plugins answered them
+defaulting into. Look at how the existing plugins answered them
 differently:
 
-**Named list vs. full inventory.** `file_integrity` and `services`
-take a user-specified list (paths, unit names) — appropriate when the
-full universe of possible resources is either huge or noisy with
-expected churn (a host has hundreds of systemd units, most
-transient/templated). `packages` and `ports` run in full-inventory
-mode with no config fields at all — appropriate when there's no
-sensible curated subset, and an unexpected new entry *is* the signal
-you're looking for. Ask: would a user ever want to say "watch only
-these five," or is "watch everything and tell me what's new" the only
-sane mode?
+**Named list vs. full inventory.** `file_integrity`, `services`,
+`timers`, and `sysctl` take a user-specified list (paths, unit names,
+tunable names) — appropriate when the full universe of possible
+resources is either huge or noisy with expected churn (a host exposes
+hundreds of systemd units and hundreds of sysctl keys, most either
+transient/templated or irrelevant to any given threat model).
+`packages` and `ports` run in full-inventory mode with no config
+fields at all — appropriate when there's no sensible curated subset,
+and an unexpected new entry *is* the signal you're looking for. Ask:
+would a user ever want to say "watch only these five," or is "watch
+everything and tell me what's new" the only sane mode?
 
-**Per-resource errors vs. whole-plugin errors.** `file_integrity`
-catches failures per-path (one unreadable file becomes a `Finding`
-with `status="error"`, the rest of the run continues) because file
-reads are independent operations. `packages`, `services`, and `ports`
-treat a query failure as whole-plugin (one subprocess call covers
-every resource, so if it fails, nothing about any individual resource
-is knowable) and report it via `PluginSnapshot.error` /
-`PluginResult.error` instead. Ask: does querying one resource
-succeeding or failing depend on any other resource? If every resource
-comes from one command, it's whole-plugin. If each is fetched
-independently, it's per-resource.
+**Per-resource errors vs. whole-plugin errors.** `file_integrity` and
+`sysctl` catch failures per-resource (one unreadable file or key
+becomes a `Finding` with `status="error"`, the rest of the run
+continues) because each resource is read independently — a file read
+or a `/proc/sys` read doesn't depend on any other file or key
+succeeding. `packages`, `services`, `timers`, and `ports` treat a
+query failure as whole-plugin (one subprocess call covers every
+resource, so if it fails, nothing about any individual resource is
+knowable) and report it via `PluginSnapshot.error` / `PluginResult.error`
+instead — this is also the only case where you need a `PluginError`
+subclass at all (see the pitfall below); `file_integrity` and `sysctl`
+have none, because there's no whole-plugin failure mode to catch. Ask:
+does querying one resource succeeding or failing depend on any other
+resource? If every resource comes from one command, it's
+whole-plugin. If each is fetched independently, it's per-resource —
+and if it's per-resource, you probably don't need a custom exception
+type either.
 
 **Whether "equal to baseline" is the whole drift test.** Every plugin
 except `services` treats "current state != baseline state" as the
@@ -132,7 +139,12 @@ should always flag regardless of what the baseline says?
   propagates as a raw, uncaught exception during `check()` instead of
   landing in `PluginResult.error` the way it's supposed to — `cli.py`
   only catches `PluginError` generically, on purpose, so it doesn't
-  need to import every plugin's specific exception type.
+  need to import every plugin's specific exception type. This only
+  applies if your plugin *has* a whole-plugin failure mode in the
+  first place (see "per-resource vs. whole-plugin errors" above) —
+  `file_integrity` and `sysctl` define no exception type at all,
+  because a per-resource `OSError` is caught and turned into
+  `Finding(status="error")` data before it ever needs to propagate.
 
 - **Treating "config unused" as "make the parameter optional."**
   Full-inventory plugins (`packages`, `ports`) still take `config` as
@@ -156,9 +168,18 @@ mock `subprocess.run` to return canned, tool-shaped output rather than
 depending on the sandbox/CI container's real state (non-deterministic,
 and CI containers won't have `dpkg`, `systemctl`, or `ss` consistently
 available). `tests/test_file_integrity.py` is the template for
-anything working with the real filesystem — it uses `tmp_path` instead
-of mocking, since filesystem operations are fast, deterministic, and
-sandboxed cheaply without a fake.
+anything working with the real filesystem where the path under test is
+itself user-supplied config — it uses `tmp_path` directly, since
+filesystem operations are fast, deterministic, and sandboxed cheaply
+without a fake. `tests/test_sysctl.py` is the template for the
+filesystem case one level removed from that: the plugin doesn't take
+a path from config, it takes a *name* and computes a path underneath
+a fixed root it doesn't control directly (`/proc/sys` in production).
+There, `tmp_path` alone isn't enough — the test monkeypatches the
+plugin's root constant (`sysctl._SYSCTL_ROOT`) to `tmp_path` and
+builds a fake layout underneath it, the same "seam for testing" role
+`subprocess.run` plays in the mocking-based tests above, just for a
+filesystem root instead of a subprocess call.
 
 Every plugin's test file covers the same core cases regardless of
 which pattern it follows: baseline capture succeeds, baseline capture

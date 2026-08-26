@@ -25,3 +25,8 @@ plugins:
   # Requires the `ss` command (iproute2); no process attribution
   # Comment out if your system uses frequent ephemeral ports
   ports: {}
+  # Tracks the value of specific kernel tunables under /proc/sys
+  sysctl:
+    names:
+      - net.ipv4.ip_forward
+      - kernel.randomize_va_space

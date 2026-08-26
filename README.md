@@ -13,6 +13,7 @@ Early development. Currently implemented plugins:
 - `file_integrity`
 - `packages` (apt/dpkg only)
 - `services` (systemd only)
+- `timers` (systemd only)
 - `ports` (requires `ss`/iproute2, no process attribution)
 
 ## Usage

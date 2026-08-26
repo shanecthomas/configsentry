@@ -59,15 +59,30 @@ class TimersConfig(BaseModel):
     names: list[str] = Field(default_factory=list)
 
 
+class SysctlConfig(BaseModel):
+    """
+    Named-list, not full-inventory. A stock kernel exposes hundreds of
+    tunables under /proc/sys, most of which are irrelevant to a given
+    host's threat model. `names` mirrors ServicesConfig.names /
+    TimersConfig.names: track only the handful (net.ipv4.ip_forward,
+    kernel.randomize_va_space, ...) that actually matter for this
+    host, using the dotted names sysctl(8)/sysctl.conf(5) use, e.g.
+    "net.ipv4.ip_forward". See plugins/sysctl.py for how that maps
+    to a /proc/sys path.
+    """
+
+    names: list[str] = Field(default_factory=list)
+
+
 class PluginsConfig(BaseModel):
-    # Every future plugin gets one more optional field here, e.g.:
-    #   sysctl: SysctlConfig | None = None
+    # Every future plugin gets one more optional field here.
     # `None` means "not configured, so this plugin doesn't run."
     file_integrity: FileIntegrityConfig | None = None
     packages: PackagesConfig | None = None
     services: ServicesConfig | None = None
     ports: PortsConfig | None = None
     timers: TimersConfig | None = None
+    sysctl: SysctlConfig | None = None
 
 
 class AppConfig(BaseModel):

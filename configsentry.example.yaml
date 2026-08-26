@@ -8,14 +8,19 @@ plugins:
   # Currently supports apt/dpkg only
   # Comment out if using a different distro
   packages: {}
-  # Tracks enablement (UnitFileState) and runtime state (ActiveState)
-  # for systemd units only
+  # Tracks systemd unit enablement (UnitFileState) and runtime state (ActiveState)
   # Comment out if your system does not use systemd
   services:
     names:
       - sshd
       - cron
       - docker
+  # Tracks systemd timer schedule (OnCalendar/OnBootSec/etc.) and enablement/state
+  # Comment out if your system does not use systemd
+  timers:
+    names:
+      - logrotate
+      - fstrim
   # Full inventory of LISTEN-state TCP and bound UDP sockets - do not modify
   # Requires the `ss` command (iproute2); no process attribution
   # Comment out if your system uses frequent ephemeral ports

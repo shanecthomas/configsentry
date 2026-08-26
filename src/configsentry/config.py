@@ -28,7 +28,7 @@ class PackagesConfig(BaseModel):
 
 class ServicesConfig(BaseModel):
     """
-    Named-list, not full-inventory -- unlike PackagesConfig. A typical
+    Named-list, not full-inventory. Unlike PackagesConfig. A typical
     host's systemd unit list runs into the hundreds, many of them
     transient or templated (getty@tty1.service, oneshot units that are
     supposed to flip active/inactive as part of normal operation). A
@@ -46,6 +46,19 @@ class PortsConfig(BaseModel):
     """
 
 
+class TimersConfig(BaseModel):
+    """
+    Named-list, not full-inventory. Same rationale as ServicesConfig:
+    a host can carry many transient/templated timer units, and only a
+    handful are usually security- or ops-relevant enough to track.
+    `names` takes bare unit names without the `.timer` suffix (mirrors
+    ServicesConfig.names, which also omits `.service`); the plugin
+    appends the suffix itself. See plugins/timers.py for why.
+    """
+
+    names: list[str] = Field(default_factory=list)
+
+
 class PluginsConfig(BaseModel):
     # Every future plugin gets one more optional field here, e.g.:
     #   sysctl: SysctlConfig | None = None
@@ -54,6 +67,7 @@ class PluginsConfig(BaseModel):
     packages: PackagesConfig | None = None
     services: ServicesConfig | None = None
     ports: PortsConfig | None = None
+    timers: TimersConfig | None = None
 
 
 class AppConfig(BaseModel):

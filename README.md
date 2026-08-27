@@ -2,7 +2,7 @@
 # configsentry
 
 Config drift auditor for Linux hosts. Capture a baseline of the
-important configuration surfaces (files, systemd services and
+configuration surfaces that matter (files, systemd services and
 timers, listening ports, installed packages, kernel tunables, SSH
 daemon hardening), then check live state against it and get an exit
 code and a report a script or CI job can act on.
@@ -21,13 +21,14 @@ not hidden behind a generic rules DSL.
 
 ## Demo
 
-<img src="assets/demo.svg" alt="configsentry baseline then check, showing a modified /etc/hosts entry and an SSH daemon flagged for permitrootlogin/passwordauthentication" width="900">
+<img src="assets/demo.svg" alt="configsentry running as an unprivileged user: whoami confirms testuser, baseline then check, showing a modified app.conf entry and an SSH daemon flagged for permitrootlogin/passwordauthentication" width="900">
 
-Real terminal session: `baseline` captures current state, `/etc/hosts`
-gets an unexpected line appended, `check` reports it as `modified`
-alongside two SSH directives flagged as insecure by policy (see the
-`ssh` plugin's `flag_insecure` option below) — and exits 1. Runs as an
-unprivileged user throughout; no plugin in this project requires root.
+Real terminal session, recorded end to end as an unprivileged user:
+`baseline` captures current state, a user-owned config file gets an
+unexpected line appended, `check` reports it as `modified` alongside
+two SSH directives flagged as insecure by policy (see the `ssh`
+plugin's `flag_insecure` option below) — and exits 1. No plugin in
+this project requires root.
 
 ## Status
 

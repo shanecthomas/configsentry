@@ -9,13 +9,14 @@ Environment-agnostic, detect-and-report only - no auto-remediation.
 
 ## Status
 
-Early development. Currently implemented plugins: 
+Currently implemented plugins: 
 - `file_integrity`
 - `packages` (apt/dpkg only)
 - `services` (systemd only)
 - `timers` (systemd only)
 - `ports` (requires `ss`/iproute2, no process attribution)
 - `sysctl`
+- `ssh` (requires `sshd`)
 
 ## Usage
 

@@ -4,7 +4,7 @@ Loads and validates configsentry.yaml.
 Note this is its OWN small set of Pydantic models, separate from
 models.py. models.py describes plugin *output* (snapshots, findings).
 This file describes plugin *input* (what the user told us to check).
-Different concerns, different models -- resist the urge to merge them
+Different concerns, different models, resist the urge to merge them
 just because they're both "Pydantic stuff."
 """
 
@@ -74,6 +74,36 @@ class SysctlConfig(BaseModel):
     names: list[str] = Field(default_factory=list)
 
 
+class SSHConfig(BaseModel):
+    """
+    Full-inventory mode over every directive `sshd -G` report.
+
+    flag_insecure is a SEPARATE, opt-in concern from the full-inventory
+    capture above, it doesn't change what gets captured, only whether
+    check() forces a directive to report as drift regardless of
+    baseline equality. It's a small named mapping of
+    {directive: insecure_value}, e.g. {"permitrootlogin": "yes"}.
+    A directive listed here whose CURRENT value matches the mapped
+    value is always flagged, the same override precedent services.py
+    uses for ActiveState == "failed" (see plugins/ssh.py check()).
+    None or {} means no directives get this treatment, nothing is
+    flagged by default, matching every other plugin's "absent config
+    field = plugin/feature doesn't run" convention.
+
+    YAML gotcha worth knowing before editing configsentry.yaml:
+    sshd -G prints "yes"/"no" as literal strings, but PyYAML's
+    safe_load treats *unquoted* yes/no as YAML 1.1 booleans, not
+    strings, `permitrootlogin: yes` in YAML becomes Python `True`,
+    which will never equal sshd -G's string "yes" and would silently
+    never fire. Pydantic catches this loudly (ValidationError: "Input
+    should be a valid string") rather than corrupting the value
+    silently, but avoid tripping it in the first place by always
+    quoting the value: `permitrootlogin: "yes"`.
+    """
+
+    flag_insecure: dict[str, str] | None = None
+
+
 class PluginsConfig(BaseModel):
     # Every future plugin gets one more optional field here.
     # `None` means "not configured, so this plugin doesn't run."
@@ -83,6 +113,7 @@ class PluginsConfig(BaseModel):
     ports: PortsConfig | None = None
     timers: TimersConfig | None = None
     sysctl: SysctlConfig | None = None
+    ssh: SSHConfig | None = None
 
 
 class AppConfig(BaseModel):
@@ -97,7 +128,7 @@ def load_config(path: Path) -> AppConfig:
     pydantic.ValidationError if the YAML doesn't match the expected
     shape (e.g. `paths` isn't a list). We deliberately let both of
     those exceptions propagate up to the CLI layer rather than
-    swallowing them here -- the CLI is responsible for turning
+    swallowing them here, the CLI is responsible for turning
     exceptions into user-facing error messages, config.py's job is
     just to load correctly or fail loudly.
     """

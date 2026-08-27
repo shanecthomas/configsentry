@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "configsentry"
-version = "0.1.0"
+version = "0.7.0"
 description = "Config drift auditor for Linux hosts: capture a baseline, detect drift."
 readme = "README.md"
 requires-python = ">=3.10"

@@ -30,3 +30,14 @@ plugins:
     names:
       - net.ipv4.ip_forward
       - kernel.randomize_va_space
+  # Full inventory diff sshd's effective config (`sshd -G`) - do not modify
+  # Requires the `sshd` binary; no root required
+  ssh:
+    # Optional. Directives listed here are always flagged as drift
+    # when their CURRENT value matches, even if unchanged from
+    # baseline. Omit or leave empty to disable this entirely.
+    # IMPORTANT: quote yes/no values - unquoted yes/no is parsed as a
+    # YAML boolean, not the string sshd -G actually reports.
+    flag_insecure:
+      permitrootlogin: "yes"
+      permitemptypasswords: "yes"
